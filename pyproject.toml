@@ -24,6 +24,7 @@ dev = ["pytest>=8", "ruff>=0.5"]
 
 [project.scripts]
 vibeguard = "vibeguard.cli:app"
+vg = "vibeguard.cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+from vibeguard import __version__
+from vibeguard.ui.banner import print_banner
+from vibeguard.ui.quickstart import print_quick_start
 
 import typer
 from rich.console import Console
@@ -37,14 +42,47 @@ def safe_path(p: Path | str) -> Path:
     return Path(p_str)
 
 
-app = typer.Typer(help="Guardrails for vibe-coded software.")
+app = typer.Typer(
+    name="vibeguard",
+    help="Guardrails for vibe-coded software.",
+    no_args_is_help=False,
+)
 console = Console()
 
 
+def version_callback(value: bool) -> None:
+    if value:
+        console.print(f"VibeGuard {__version__}")
+        raise typer.Exit()
+
+
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        None,
+        "--version",
+        "-V",
+        callback=version_callback,
+        is_eager=True,
+        help="Show VibeGuard version and exit.",
+    ),
+) -> None:
+    if ctx.invoked_subcommand is None:
+        print_banner(console, compact=False)
+        print_quick_start(console)
+
+
 @app.command()
-def init(project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory.")) -> None:
+def init(
+    project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
+) -> None:
     """Initialize .vibeguard in a project."""
     project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=False, project=project)
     out = ensure_vibeguard_dir(project)
     config = out / "config.yaml"
     if not config.exists():
@@ -58,9 +96,15 @@ def init(project: Path = typer.Option(Path("."), "--project", "-p", help="Projec
 
 
 @app.command()
-def scan(project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory.")) -> None:
+def scan(
+    project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
+) -> None:
     """Scan project structure, stack, important files, and ignored folders."""
     project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=True, project=project)
     result = scan_project(project)
     _write_scan_cache(project, result)
     console.print(f"Project type: {result.detection.primary_type}")
@@ -77,52 +121,91 @@ def scan(project: Path = typer.Option(Path("."), "--project", "-p", help="Projec
 
 @app.command()
 def context(
-    goal: str = typer.Option(..., "--goal", "-g", help="Goal for the AI coding task."),
+    goal_arg: str = typer.Argument(None, help="Goal for the AI coding task."),
+    goal: str = typer.Option(None, "--goal", "-g", help="Goal for the AI coding task."),
     project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
-    max_tokens: int = typer.Option(8000, "--max-tokens", help="Context token budget."),
+    max_tokens: int = typer.Option(8000, "--max-tokens", "-t", help="Context token budget."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
 ) -> None:
     """Create an AI-readable context pack."""
     project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=True, project=project)
+    resolved_goal = goal or goal_arg
+    if not resolved_goal:
+        console.print("ERROR: Missing option '--goal' / '-g' or positional argument.")
+        raise typer.Exit(1)
     scan_result = scan_project(project)
-    pack_result = pack_files(project, scan_result, goal, max_tokens)
-    path = write_text(project, "context.md", build_context(scan_result, goal, pack_result))
+    pack_result = pack_files(project, scan_result, resolved_goal, max_tokens)
+    path = write_text(project, "context.md", build_context(scan_result, resolved_goal, pack_result))
     console.print(f"Context written: {display_path(path)}")
 
 
 @app.command()
-def plan(goal: str, project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory.")) -> None:
+def plan(
+    goal_arg: str = typer.Argument(None, help="Goal for the AI coding task."),
+    goal: str = typer.Option(None, "--goal", "-g", help="Goal for the AI coding task."),
+    project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
+) -> None:
     """Turn a rough idea into a guarded implementation plan."""
     project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=True, project=project)
+    resolved_goal = goal or goal_arg
+    if not resolved_goal:
+        console.print("ERROR: Missing option '--goal' / '-g' or positional argument.")
+        raise typer.Exit(1)
     scan_result = scan_project(project)
-    path = write_text(project, "task.md", build_plan(scan_result, goal))
+    path = write_text(project, "task.md", build_plan(scan_result, resolved_goal))
     console.print(f"Plan written: {display_path(path)}")
 
 
 @app.command()
 def prompt(
-    goal: str,
+    goal_arg: str = typer.Argument(None, help="Goal for the AI coding task."),
+    goal: str = typer.Option(None, "--goal", "-g", help="Goal for the AI coding task."),
     project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
-    max_tokens: int = typer.Option(8000, "--max-tokens", help="Prompt file budget."),
+    max_tokens: int = typer.Option(8000, "--max-tokens", "-t", help="Prompt file budget."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
 ) -> None:
     """Generate a high-quality prompt for AI coding tools."""
     project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=True, project=project)
+    resolved_goal = goal or goal_arg
+    if not resolved_goal:
+        console.print("ERROR: Missing option '--goal' / '-g' or positional argument.")
+        raise typer.Exit(1)
     scan_result = scan_project(project)
-    pack_result = pack_files(project, scan_result, goal, max_tokens)
-    path = write_text(project, "prompt.md", build_prompt(scan_result, goal, pack_result))
+    pack_result = pack_files(project, scan_result, resolved_goal, max_tokens)
+    path = write_text(project, "prompt.md", build_prompt(scan_result, resolved_goal, pack_result))
     console.print(f"Prompt written: {display_path(path)}")
 
 
 @app.command()
 def pack(
-    goal: str = typer.Option(..., "--goal", "-g", help="Goal used for relevance scoring."),
-    max_tokens: int = typer.Option(8000, "--max-tokens", help="Maximum estimated token budget."),
+    goal_arg: str = typer.Argument(None, help="Goal used for relevance scoring."),
+    goal: str = typer.Option(None, "--goal", "-g", help="Goal used for relevance scoring."),
+    max_tokens: int = typer.Option(8000, "--max-tokens", "-t", help="Maximum estimated token budget."),
     project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
 ) -> None:
     """Create a token-aware context pack."""
     project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=True, project=project)
+    resolved_goal = goal or goal_arg
+    if not resolved_goal:
+        console.print("ERROR: Missing option '--goal' / '-g' or positional argument.")
+        raise typer.Exit(1)
     scan_result = scan_project(project)
-    result = pack_files(project, scan_result, goal, max_tokens)
-    path = write_text(project, "pack.md", build_pack(scan_result, goal, result, max_tokens))
+    result = pack_files(project, scan_result, resolved_goal, max_tokens)
+    path = write_text(project, "pack.md", build_pack(scan_result, resolved_goal, result, max_tokens))
     console.print(f"Pack written: {display_path(path)}")
     console.print(f"Estimated tokens: {result.estimated_tokens} / {max_tokens}")
     console.print("Included files:")
@@ -135,9 +218,15 @@ def pack(
 
 
 @app.command()
-def verify(project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory.")) -> None:
+def verify(
+    project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
+) -> None:
     """Run available verification checks without installing tools."""
     project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=True, project=project)
     scan_result = scan_project(project)
     if scan_result.detection.package_manager in ("yarn", "pnpm", "bun"):
         console.print(f"WARNING: Detected {scan_result.detection.package_manager} project. Automatic verification currently supports npm in MVP.")
@@ -155,9 +244,15 @@ def verify(project: Path = typer.Option(Path("."), "--project", "-p", help="Proj
 
 
 @app.command()
-def doctor(project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory.")) -> None:
+def doctor(
+    project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
+) -> None:
     """Check whether VibeGuard can run cleanly in the project."""
     root = safe_path(project).resolve()
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=False, project=root)
     scan_result = scan_project(root)
     detection = scan_result.detection
     warnings = 0
@@ -167,6 +262,18 @@ def doctor(project: Path = typer.Option(Path("."), "--project", "-p", help="Proj
     python_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     cwd = Path.cwd()
     project_path = root
+
+    vibeguard_avail = "available" if shutil.which("vibeguard") else "missing"
+    vg_avail = "available" if shutil.which("vg") else "missing"
+    try:
+        import vibeguard
+        module_path = Path(vibeguard.__file__).resolve()
+        if "site-packages" in str(module_path) or "dist-packages" in str(module_path):
+            install_mode = "installed"
+        else:
+            install_mode = "editable"
+    except Exception:
+        install_mode = "unknown"
 
     git_avail = "available" if shutil.which("git") else "missing"
     node_avail = "available" if shutil.which("node") else "missing"
@@ -188,6 +295,12 @@ def doctor(project: Path = typer.Option(Path("."), "--project", "-p", help="Proj
     console.print(f"- Python: {python_ver}")
     console.print(f"- Current working directory: {display_path(cwd)}")
     console.print(f"- Project path: {display_path(project_path)}")
+    console.print("")
+    console.print("CLI:")
+    console.print(f"- vibeguard command: {vibeguard_avail}")
+    console.print(f"- vg command: {vg_avail}")
+    console.print(f"- Python executable: {display_path(Path(python_exec))}")
+    console.print(f"- Package install mode: {install_mode}")
     console.print("")
     console.print("Tools:")
     console.print(f"- Git: {git_avail}")
@@ -222,6 +335,19 @@ def doctor(project: Path = typer.Option(Path("."), "--project", "-p", help="Proj
         warnings += 1
 
     console.print(f"OK Python detected: {python_ver}")
+
+    if vibeguard_avail == "available":
+        console.print("OK vibeguard command available")
+    else:
+        console.print("WARNING vibeguard command not found in PATH")
+        console.print("Suggestion: run `pip install -e .` or use `pipx install -e .` in your workspace.")
+        warnings += 1
+
+    if vg_avail == "available":
+        console.print("OK vg command available")
+    else:
+        console.print("WARNING vg command not found in PATH")
+        warnings += 1
 
     if git_avail == "available":
         console.print("OK Git available")
@@ -274,15 +400,23 @@ def doctor(project: Path = typer.Option(Path("."), "--project", "-p", help="Proj
 
 @app.command("all")
 def run_all(
-    goal: str = typer.Option(..., "--goal", "-g", help="Goal for the full VibeGuard workflow."),
+    goal_arg: str = typer.Argument(None, help="Goal for the full VibeGuard workflow."),
+    goal: str = typer.Option(None, "--goal", "-g", help="Goal for the full VibeGuard workflow."),
     project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
-    max_tokens: int = typer.Option(8000, "--max-tokens", help="Maximum estimated token budget."),
+    max_tokens: int = typer.Option(8000, "--max-tokens", "-t", help="Maximum estimated token budget."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
 ) -> None:
     """Run the complete MVP workflow."""
+    project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=False, project=project)
+    resolved_goal = goal or goal_arg
+    if not resolved_goal:
+        console.print("ERROR: Missing option '--goal' / '-g' or positional argument.")
+        raise typer.Exit(1)
     console.print("Running VibeGuard workflow...")
     console.print("")
-
-    project = safe_path(project)
     if not project.exists():
         console.print(f"ERROR: Project path '{display_path(project)}' does not exist.")
         raise typer.Exit(1)
@@ -302,19 +436,19 @@ def run_all(
     _write_scan_cache(project, scan_result)
     console.print("OK scan completed")
 
-    context_pack = pack_files(project, scan_result, goal, max_tokens)
-    write_text(project, "context.md", build_context(scan_result, goal, context_pack))
+    context_pack = pack_files(project, scan_result, resolved_goal, max_tokens)
+    write_text(project, "context.md", build_context(scan_result, resolved_goal, context_pack))
     console.print("OK context generated")
 
-    write_text(project, "task.md", build_plan(scan_result, goal))
+    write_text(project, "task.md", build_plan(scan_result, resolved_goal))
     console.print("OK plan generated")
 
-    prompt_pack = pack_files(project, scan_result, goal, max_tokens)
-    write_text(project, "prompt.md", build_prompt(scan_result, goal, prompt_pack))
+    prompt_pack = pack_files(project, scan_result, resolved_goal, max_tokens)
+    write_text(project, "prompt.md", build_prompt(scan_result, resolved_goal, prompt_pack))
     console.print("OK prompt generated")
 
-    pack_result = pack_files(project, scan_result, goal, max_tokens)
-    write_text(project, "pack.md", build_pack(scan_result, goal, pack_result, max_tokens))
+    pack_result = pack_files(project, scan_result, resolved_goal, max_tokens)
+    write_text(project, "pack.md", build_pack(scan_result, resolved_goal, pack_result, max_tokens))
     console.print("OK pack generated")
 
     verification = verify_project(project, scan_result.detection)
@@ -355,9 +489,15 @@ def run_all(
 
 
 @app.command("diff-explain")
-def diff_explain(project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory.")) -> None:
+def diff_explain(
+    project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
+) -> None:
     """Explain uncommitted Git changes."""
     project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=True, project=project)
     diff = analyze_diff(project)
     if diff.status == "git_missing":
         console.print("Git not available. Skipping diff analysis.")
@@ -385,9 +525,15 @@ def diff_explain(project: Path = typer.Option(Path("."), "--project", "-p", help
 
 
 @app.command()
-def risks(project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory.")) -> None:
+def risks(
+    project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
+) -> None:
     """Show risky patterns in the current Git diff."""
     project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=True, project=project)
     diff = analyze_diff(project)
     if diff.status == "git_missing":
         console.print("Git not available. Skipping diff analysis.")
@@ -411,9 +557,15 @@ def risks(project: Path = typer.Option(Path("."), "--project", "-p", help="Proje
 
 
 @app.command("next-prompt")
-def next_prompt(project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory.")) -> None:
+def next_prompt(
+    project: Path = typer.Option(Path("."), "--project", "-p", help="Project directory."),
+    no_banner: bool = typer.Option(False, "--no-banner", help="Disable the startup banner."),
+) -> None:
     """Generate the next best prompt after reviewing risky changes."""
     project = safe_path(project)
+    if no_banner:
+        os.environ["VIBEGUARD_NO_BANNER"] = "1"
+    print_banner(console, compact=True, project=project)
     diff = analyze_diff(project)
     if diff.status == "git_missing":
         console.print("Git not available. Skipping diff analysis.")

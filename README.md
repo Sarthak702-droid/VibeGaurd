@@ -16,26 +16,66 @@ Save tokens. Catch risky AI changes. Ship safer.
 
 ## Install
 
+### Global Install with pipx (Recommended)
+
 ```bash
-pip install vibeguard
+pipx install vibeguard
 ```
 
-## Development Install
+### Install for Development
 
 ```bash
+git clone <repo-url>
+cd Vibegaurd
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e .
 ```
 
-## Windows
+# CLI Usage
 
-```powershell
-vibeguard scan --project examples\messy-expo
-```
-
-## macOS / Linux
+After installation, VibeGuard can be run globally:
 
 ```bash
-vibeguard scan --project examples/messy-expo
+vibeguard
+```
+
+or with the short alias:
+
+```bash
+vg
+```
+
+## Quick Start
+
+```bash
+cd my-project
+vibeguard init
+vibeguard all --goal "add OTP login without changing existing architecture"
+```
+
+Short alias:
+
+```bash
+cd my-project
+vg init
+vg all -g "add OTP login without changing existing architecture"
+```
+
+## Commands
+
+```bash
+vibeguard scan
+vibeguard context -g "add OTP login"
+vibeguard plan -g "add OTP login"
+vibeguard prompt -g "add OTP login"
+vibeguard pack -g "add OTP login" -t 8000
+vibeguard verify
+vibeguard diff-explain
+vibeguard risks
+vibeguard next-prompt
+vibeguard doctor
+vibeguard all -g "add OTP login"
 ```
 
 ## Security Defaults
