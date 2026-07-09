@@ -1,0 +1,15 @@
+{
+  "name": "messy-expo-demo",
+  "private": true,
+  "scripts": {
+    "start": "expo start"
+  },
+  "dependencies": {
+    "expo": "latest",
+    "react": "latest",
+    "react-native": "latest"
+  },
+  "devDependencies": {
+    "typescript": "latest"
+  }
+}
