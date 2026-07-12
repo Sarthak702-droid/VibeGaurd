@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import re
+
 from vibeguard.core.scanner import ScanResult
-from vibeguard.core.token_packer import PackResult
+from vibeguard.core.token_packer import PackResult, pack_files
 
 
 RULES = [
@@ -20,6 +22,18 @@ RULES = [
 
 def build_context(scan: ScanResult, goal: str, pack: PackResult | None = None) -> str:
     important = _ordered_important_files(scan)
+    selected = pack.included if pack else []
+    selection = "\n".join(f"- `{item.path}` — {item.reason}" for item in selected) or "- None"
+    excerpts: list[str] = []
+    for item in selected:
+        path = scan.root / item.path
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        excerpts.append(f"### `{item.path}`\nReason: {item.reason}\n\n```text\n{_redact_context(text)[:12000]}\n```")
+    source_dirs = ", ".join(scan.detection.source_dirs) or "None detected"
+    test_dirs = ", ".join(scan.detection.test_dirs) or "None detected"
     return f"""# VibeGuard Context Pack
 
 ## Goal
@@ -37,21 +51,20 @@ def build_context(scan: ScanResult, goal: str, pack: PackResult | None = None) -
 ## Important Files
 {_plain_bullets(important)}
 
+## Selected Files and Reasons
+{selection}
+
 ## Folder Summary
-- `src/screens/` contains app screens.
-- `src/services/` contains service/API logic.
-- `app.json` contains Expo app configuration.
-- `package.json` contains dependencies and scripts.
-- `tsconfig.json` contains TypeScript configuration.
+- Source directories: {source_dirs}
+- Test directories: {test_dirs}
+- Entry points: {", ".join(scan.detection.entry_points) or "None detected"}
+- Dependency manifests: {", ".join(scan.detection.manifests) or "None detected"}
 
 ## Existing Architecture Notes
-- Login screen exists at src/screens/Login.tsx.
-- Auth service exists at src/services/auth.ts.
-- Existing folder structure should be preserved.
-- Login-related UI changes should be made inside the existing Login screen unless a new component is necessary.
-- Auth-related logic should use or extend the existing auth service.
-- Do not rewrite navigation unless required.
-- Do not expose secrets in frontend code.
+- Primary type: {scan.detection.primary_type}.
+- Languages: {", ".join(scan.detection.languages) or "Unknown"}.
+- Preserve established source, test, and configuration conventions.
+- Inspect interfaces and tests before changing implementations.
 
 ## AI Rules
 {_plain_bullets(RULES)}
@@ -68,127 +81,86 @@ def build_context(scan: ScanResult, goal: str, pack: PackResult | None = None) -
 - Secrets are not included in this context pack.
 - Do not hardcode API keys or tokens.
 - Do not expose backend secrets in frontend code.
+
+## Redacted File Context
+{chr(10).join(excerpts) if excerpts else "No file content selected."}
 """
 
 
 def build_plan(scan: ScanResult, goal: str) -> str:
-    if _is_auth_goal(goal):
-        return f"""# Implementation Plan
-
-## Goal
-{_sentence(goal)}
-
-## Scope
-- Update existing Login screen.
-- Add phone number input.
-- Add OTP request flow.
-- Add OTP verification flow.
-- Use existing auth service.
-- Add loading states.
-- Add error states.
-- Keep UI changes limited to the login flow.
-
-## Out Of Scope
-- Do not rewrite app navigation.
-- Do not add a new backend unless required.
-- Do not change app branding.
-- Do not add payment/subscription logic.
-- Do not introduce unrelated state management changes.
-- Do not restructure the app.
-
-## Likely Affected Files
-- src/screens/Login.tsx
-- src/services/auth.ts
-
-## Implementation Steps
-1. Inspect the existing Login screen.
-2. Inspect the existing auth service.
-3. Add or update phone number input.
-4. Add OTP request action.
-5. Add OTP verification action.
-6. Add loading state for OTP request and verification.
-7. Add error handling for invalid phone number and invalid OTP.
-8. Keep all changes inside the existing login/auth flow.
-9. Add or update tests if a test setup exists.
-10. Explain all changed files.
-
-## Acceptance Criteria
-- User can enter phone number.
-- User can request OTP.
-- User can enter OTP.
-- Invalid OTP shows an error.
-- Empty phone number shows validation error.
-- Loading state is shown during request.
-- Auth logic uses existing auth service.
-- No secrets are stored in frontend.
-- Existing app architecture is not rewritten.
-
-## Test Cases
-- Empty phone number.
-- Invalid phone number.
-- OTP request success.
-- OTP request failure.
-- OTP verification success.
-- OTP verification failure.
-- Network failure during OTP request.
-- Network failure during OTP verification.
-
-## Risks
-- Auth flow may be changed incorrectly.
-- OTP state handling may break login UX.
-- Secrets may accidentally be placed in frontend.
-- Missing tests may allow silent bugs.
-- AI may modify unrelated files.
-
-## Rollback Plan
-- Revert changes in src/screens/Login.tsx.
-- Revert changes in src/services/auth.ts.
-- Remove any newly added OTP-only files if they are not required.
-- Re-run VibeGuard verify after rollback.
-"""
+    relevant = pack_files(scan.root, scan, goal, 4000).included
+    likely_files = [item.path for item in relevant[:12]] or scan.important_files[:12] or scan.files[:12]
+    protected = [".env*", ".github/workflows/", "migrations/", "unrelated source and test files"]
+    risk = "High" if _is_auth_goal(goal) or any(term in goal.lower() for term in ("payment", "permission", "migration", "security")) else "Medium"
     return f"""# Implementation Plan
 
-## Goal
+## Objective
 {_sentence(goal)}
 
-## Scope
-- Implement the smallest change that satisfies the goal.
-- Reuse existing project patterns in this {scan.detection.primary_type} project.
+## Assumptions
+- The existing {scan.detection.primary_type} architecture and public interfaces remain authoritative.
+- The task should be implemented with the smallest reviewable diff.
+- Required tools or credentials not present in the repository will be reported, not invented.
 
-## Out Of Scope
-- Full rewrites.
-- Unrelated UI, navigation, dependency, or architecture changes.
-- Secret or environment changes unless explicitly requested.
+## Scope
+- Implement only behavior explicitly required by the objective.
+- Reuse existing interfaces, schemas, dependencies, and test patterns.
+- Treat selected files as predictions; inspect imports before editing.
+
+## Required Work
+- Inspect the likely affected files and their callers.
+- Implement the objective with validation and explicit error handling.
+- Add or update automated tests for changed behavior.
+- Run detected verification commands and explain the final diff.
+
+## Optional Work
+- Refactoring is optional and must be limited to code directly blocking the objective.
+- New dependencies are optional only when the existing stack cannot satisfy the requirement.
 
 ## Likely Affected Files
-{_plain_bullets(scan.important_files[:12] or scan.files[:12])}
+{_plain_bullets(likely_files)}
+
+## Files That Must Not Change Without Approval
+{_plain_bullets(protected)}
 
 ## Implementation Steps
-1. Inspect relevant files and current tests.
-2. Make the focused code change.
-3. Add or update tests for changed behavior.
-4. Run available verification commands.
-5. Explain changed files and known risks.
+1. Inspect relevant interfaces, implementations, configuration, and tests.
+2. Confirm the minimal file scope and acceptance criteria.
+3. Implement the main success path and input validation.
+4. Handle expected failures without leaking sensitive data.
+5. Add or update tests for success, invalid input, and failure paths.
+6. Run tests, lint, type checks, security checks, and diff review.
+
+## Security Considerations
+- Do not add credentials, tokens, or private data to source or generated prompts.
+- Preserve authentication, authorization, permission, and validation boundaries.
+- Review dependency, configuration, CI, migration, and protected-path changes explicitly.
+
+## Test Plan
+- Cover the primary success path.
+- Cover empty, malformed, boundary, and unauthorized input where applicable.
+- Cover dependency, network, subprocess, or persistence failures where applicable.
+- Add a regression test for the behavior being changed.
+
+## Verification Plan
+- Run `vig verify --full`.
+- Run `vig secrets`, `vig deps`, and `vig risk`.
+- Review `vig explain` and generate `vig report`.
 
 ## Acceptance Criteria
-- Goal works end to end.
-- Existing behavior remains intact.
-- Tests are added or updated where behavior changed.
-- No unrelated files are modified.
+- The objective works end to end.
+- Existing behavior and public interfaces remain compatible unless change is explicit.
+- Automated tests cover changed behavior and pass.
+- No unrelated or protected files are modified.
+- No secret-like values are introduced.
 
-## Test Cases
-- Main success path.
-- Empty or invalid input.
-- Error response.
-- Network or command failure.
+## Estimated Risk
+{risk}
 
-## Risks
-- AI may modify unrelated files.
-- Missing tests may allow silent bugs.
-
-## Rollback Plan
-- Revert only files touched for this task.
-- Re-run VibeGuard verify after rollback.
+## Rollback Considerations
+- Revert only files attributed to this task or agent session.
+- Restore dependency/lockfile changes together when applicable.
+- Re-run verification after rollback.
 """
 
 
@@ -292,36 +264,38 @@ You are working inside an existing codebase.
 
 
 def build_next_prompt(risk_lines: list[str]) -> str:
-    return """# Suggested Next Prompt
+    findings = _plain_bullets(risk_lines)
+    return f"""# Suggested Next Prompt
 
-Review the OTP login implementation.
+Correct only the unresolved deterministic findings below.
 
-Focus only on:
-- validation
-- error handling
-- loading states
-- tests
-- secret leakage
+## Exact Findings
+{findings}
 
-Do not rewrite the architecture.
-Do not modify unrelated files.
-Do not change navigation unless required.
+## Required Corrections
+- Resolve the root cause of each finding without suppressing safety checks.
+- Add validation and explicit error handling where the finding identifies missing coverage.
+- Remove and revoke any exposed credential; never print its original value.
 
-Add tests for:
-- empty phone number
-- invalid phone number
-- invalid OTP
-- successful OTP verification
-- failed OTP verification
-- network failure during OTP request
-- network failure during OTP verification
+## Scope Guardrails
+- Do not rewrite the architecture.
+- Do not modify unrelated or protected files.
+- Do not change dependencies, CI, migrations, authentication, or permissions unless a listed finding requires it.
 
-After making changes, explain:
-1. Which files were changed.
-2. Why each file was changed.
-3. What tests were added.
-4. What commands should be run.
-5. Any remaining limitations.
+## Tests To Run
+- Add a regression test for each corrected behavior.
+- Run the affected test suite, lint, type checks, and `vig verify`.
+- Run `vig secrets`, `vig deps`, and `vig risk`.
+
+## Acceptance Criteria
+- All listed findings are resolved or explicitly documented for human review.
+- Blocking checks pass.
+- No new high or critical finding is introduced.
+
+## Completion Report
+1. List each changed file and why it changed.
+2. List tests added or updated and commands executed.
+3. Report remaining limitations and unresolved findings.
 """
 
 
@@ -351,3 +325,10 @@ def _sentence(goal: str) -> str:
         return text
     text = text[0].upper() + text[1:]
     return text if text.endswith(".") else f"{text}."
+
+
+def _redact_context(text: str) -> str:
+    assignment = re.compile(r"(?i)(api[_-]?key|secret|token|password|private[_-]?key)(\s*[:=]\s*)[\"']?[^\s\"']{6,}[\"']?")
+    text = assignment.sub(lambda match: f"{match.group(1)}{match.group(2)}[REDACTED]", text)
+    text = re.sub(r"(?i)(sk-|ghp_|github_pat_|xoxb-|AIza)[A-Za-z0-9_-]{8,}", "[REDACTED]", text)
+    return text

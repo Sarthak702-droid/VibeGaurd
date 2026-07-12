@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 from rich.console import Console
 import yaml
 from vibeguard.ui.banner import print_banner

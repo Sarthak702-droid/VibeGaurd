@@ -35,9 +35,9 @@ def analyze_diff(root: Path) -> DiffSummary:
     if res_head.returncode != 0:
         return DiffSummary(status="no_commits")
 
-    raw_diff = _git(root, ["diff", "--", "."])
-    numstat = _git(root, ["diff", "--numstat", "--", "."])
-    name_status = _git(root, ["diff", "--name-status", "--", "."])
+    raw_diff = _git(root, ["diff", "HEAD", "--", "."])
+    numstat = _git(root, ["diff", "HEAD", "--numstat", "--", "."])
+    name_status = _git(root, ["diff", "HEAD", "--name-status", "--", "."])
     additions_by_file: dict[str, tuple[int, int]] = {}
 
     for line in numstat.splitlines():
@@ -55,6 +55,22 @@ def analyze_diff(root: Path) -> DiffSummary:
             path = parts[-1]
             additions, deletions = additions_by_file.get(path, (0, 0))
             changed.append(ChangedFile(path=path, status=status, additions=additions, deletions=deletions))
+
+    tracked = {item.path for item in changed}
+    untracked = _git(root, ["ls-files", "--others", "--exclude-standard"])
+    for path in untracked.splitlines():
+        if not path or path in tracked or path == ".vibeguard" or path.startswith(".vibeguard/"):
+            continue
+        absolute = root / path
+        try:
+            text = absolute.read_text(encoding="utf-8", errors="ignore") if absolute.stat().st_size <= 1_048_576 else ""
+        except OSError:
+            text = ""
+        additions = len(text.splitlines())
+        changed.append(ChangedFile(path=path, status="added", additions=additions))
+        if text:
+            raw_diff += f"\ndiff --git a/{path} b/{path}\n--- /dev/null\n+++ b/{path}\n"
+            raw_diff += "\n".join(f"+{line}" for line in text.splitlines()) + "\n"
 
     return DiffSummary(changed_files=changed, raw_diff=raw_diff, status="ok")
 
@@ -75,4 +91,3 @@ def _status_name(code: str) -> str:
     if code.startswith("R"):
         return "renamed"
     return "modified"
-

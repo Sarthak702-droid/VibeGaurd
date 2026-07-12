@@ -70,12 +70,12 @@ def test_plan_command_writes_auth_specific_task_plan(tmp_path: Path) -> None:
     content = (project / ".vibeguard" / "task.md").read_text(encoding="utf-8")
     assert content.startswith("# Implementation Plan")
     assert "## Scope" in content
-    assert "- Update existing Login screen." in content
+    assert "## Required Work" in content
     assert "## Likely Affected Files" in content
     assert "- src/screens/Login.tsx" in content
-    assert "## Test Cases" in content
-    assert "- OTP verification failure." in content
-    assert "## Rollback Plan" in content
+    assert "## Test Plan" in content
+    assert "- Cover the primary success path." in content
+    assert "## Rollback Considerations" in content
 
 
 def test_pack_command_writes_token_saving_pack(tmp_path: Path) -> None:
@@ -171,7 +171,7 @@ def test_diff_risks_and_next_prompt_use_git_changes(tmp_path: Path) -> None:
     assert "Reason: auth-related files require manual review" in risk_report
     assert next_prompt.startswith("# Suggested Next Prompt")
     assert "Do not rewrite the architecture." in next_prompt
-    assert "failed OTP verification" in next_prompt
+    assert "Auth logic changed" in next_prompt
 
 
 

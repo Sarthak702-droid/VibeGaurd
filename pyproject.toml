@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vibegaurd-cli"
-version = "0.1.1"
-description = "Guardrails for vibe-coded software."
+version = "0.2.0"
+description = "Vendor-neutral trust and governance layer for AI-assisted software development."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -50,17 +50,19 @@ dependencies = [
 dev = [
   "pytest>=8",
   "ruff>=0.5",
+  "mypy>=1.10",
   "build>=1.2",
   "twine>=5"
 ]
 
 [project.urls]
-Homepage = "https://github.com/Sarthak702-droid/VibeGaurd"
-Repository = "https://github.com/Sarthak702-droid/VibeGaurd"
-Issues = "https://github.com/Sarthak702-droid/VibeGaurd/issues"
+Homepage = "https://github.com/Sarthak702-droid/VibeGuard"
+Repository = "https://github.com/Sarthak702-droid/VibeGuard"
+Issues = "https://github.com/Sarthak702-droid/VibeGuard/issues"
 
 [project.scripts]
 vibeguard = "vibeguard.cli:app"
+vig = "vibeguard.cli:app"
 vbg = "vibeguard.cli:app"
 
 [tool.hatch.build.targets.wheel]
@@ -77,3 +79,10 @@ include = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["vibeguard"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+check_untyped_defs = true

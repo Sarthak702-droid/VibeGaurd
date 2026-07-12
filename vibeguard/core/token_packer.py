@@ -21,6 +21,7 @@ class PackedFile:
     path: str
     score: int
     estimated_tokens: int
+    reason: str = "Task relevance"
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,8 @@ def pack_files(root: Path, scan: ScanResult, goal: str, max_tokens: int = 8000) 
                 
         score = _score_file(rel_path, text, keywords)
         tokens = max(1, len(text) // 4)
-        scored.append(PackedFile(rel_path, score, tokens))
+        reason = _selection_reason(rel_path, text, keywords)
+        scored.append(PackedFile(rel_path, score, tokens, reason))
 
     ordered = sorted(scored, key=lambda item: (-item.score, item.estimated_tokens, item.path))
     included: list[PackedFile] = []
@@ -99,4 +101,16 @@ def _score_file(rel_path: str, text: str, keywords: set[str]) -> int:
     if len(text) > 20_000:
         score -= 5
     return score
+
+
+def _selection_reason(rel_path: str, text: str, keywords: set[str]) -> str:
+    matched_path = sorted(keyword for keyword in keywords if keyword in rel_path.lower())
+    if matched_path:
+        return "Task keyword in path: " + ", ".join(matched_path[:4])
+    matched_content = sorted(keyword for keyword in keywords if keyword in text.lower())
+    if matched_content:
+        return "Task keyword in content: " + ", ".join(matched_content[:4])
+    if Path(rel_path).name in CONFIG_FILES:
+        return "Project configuration or dependency manifest"
+    return "Repository structure relevance"
 

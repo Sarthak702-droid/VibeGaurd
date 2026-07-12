@@ -1,6 +1,7 @@
 import subprocess
 import shutil
 import sys
+import time
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -9,6 +10,8 @@ class RunResult:
     status: str  # "Passed", "Failed", "Skipped"
     details: str
     command_str: str
+    duration: float = 0.0
+    exit_code: int | None = None
 
 ALLOWED_COMMAND_STRINGS = {
     "npm test",
@@ -20,6 +23,29 @@ ALLOWED_COMMAND_STRINGS = {
     "bandit -r .",
     "pip-audit",
     "python -m compileall .",
+    "python -m pytest",
+    "python -m ruff check .",
+    "python -m mypy .",
+    "python -m black --check .",
+    "python -m build",
+    "python -m mypy .",
+    "python -m black --check .",
+    "npm run build",
+    "npm run format:check",
+    "pnpm test",
+    "pnpm run lint",
+    "pnpm run typecheck",
+    "pnpm run build",
+    "yarn test",
+    "yarn lint",
+    "yarn typecheck",
+    "yarn build",
+    "bun test",
+    "go test ./...",
+    "go vet ./...",
+    "mvn test",
+    "gradle test",
+    "./gradlew test",
 }
 
 def is_allowlisted(command: list[str]) -> bool:
@@ -32,7 +58,13 @@ def is_allowlisted(command: list[str]) -> bool:
         normalized_first = first
     
     normalized_cmd_str = " ".join([normalized_first] + command[1:])
-    return normalized_cmd_str in ALLOWED_COMMAND_STRINGS
+    if normalized_cmd_str in ALLOWED_COMMAND_STRINGS:
+        return True
+    if len(command) == 3 and normalized_first == "python" and command[1] == "-c":
+        import re
+
+        return re.fullmatch(r"import [A-Za-z_][A-Za-z0-9_.]*", command[2]) is not None
+    return False
 
 def run_project_command(project_path: Path, command: list[str], timeout: int = 120) -> RunResult:
     cmd_str = " ".join(command)
@@ -59,6 +91,7 @@ def run_project_command(project_path: Path, command: list[str], timeout: int = 1
         command = [resolved] + command[1:]
     
     # 3. Execute
+    started = time.monotonic()
     try:
         result = subprocess.run(
             command,
@@ -72,13 +105,16 @@ def run_project_command(project_path: Path, command: list[str], timeout: int = 1
         return RunResult(
             status="Skipped",
             details=f"{executable} is not installed or not on PATH.",
-            command_str=cmd_str
+            command_str=cmd_str,
+            duration=time.monotonic() - started,
         )
     except subprocess.TimeoutExpired:
         return RunResult(
             status="Failed",
             details=f"Command timed out after {timeout} seconds.",
-            command_str=cmd_str
+            command_str=cmd_str,
+            duration=time.monotonic() - started,
+            exit_code=124,
         )
     
     output = (result.stdout + "\n" + result.stderr).strip()
@@ -86,11 +122,15 @@ def run_project_command(project_path: Path, command: list[str], timeout: int = 1
         return RunResult(
             status="Passed",
             details=output or "Command passed.",
-            command_str=cmd_str
+            command_str=cmd_str,
+            duration=time.monotonic() - started,
+            exit_code=result.returncode,
         )
     else:
         return RunResult(
             status="Failed",
             details=output or f"Command exited with {result.returncode}.",
-            command_str=cmd_str
+            command_str=cmd_str,
+            duration=time.monotonic() - started,
+            exit_code=result.returncode,
         )

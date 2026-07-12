@@ -9,16 +9,17 @@ def _scan() -> ScanResult:
     return ScanResult(root=Path("demo"), detection=ProjectDetection(primary_type="React Native / Expo"))
 
 
-def test_plan_generator_creates_auth_specific_scope() -> None:
+def test_plan_generator_creates_task_specific_scope() -> None:
     content = build_plan(_scan(), "add OTP login without changing architecture")
 
-    assert "- Add OTP request flow." in content
-    assert "- Add OTP verification flow." in content
-    assert "- src/services/auth.ts" in content
+    assert "## Objective" in content
+    assert "## Required Work" in content
+    assert "## Security Considerations" in content
+    assert "## Estimated Risk\nHigh" in content
 
 
 def test_plan_generator_keeps_non_auth_tasks_small() -> None:
     content = build_plan(_scan(), "fix button spacing")
 
-    assert "Implement the smallest change that satisfies the goal." in content
-    assert "Full rewrites." in content
+    assert "smallest reviewable diff" in content
+    assert "## Files That Must Not Change Without Approval" in content

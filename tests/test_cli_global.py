@@ -20,7 +20,7 @@ def test_vbg_alias_registered_in_pyproject() -> None:
 def test_readme_uses_distribution_and_vbg_alias() -> None:
     readme = (Path(__file__).parent.parent / "README.md").read_text(encoding="utf-8")
     assert "pipx install vibegaurd-cli" in readme
-    assert "vbg init" in readme
+    assert "vig init" in readme
     assert "vg init" not in readme
 
 
@@ -28,7 +28,7 @@ def test_vibeguard_help_does_not_crash() -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "Guardrails for vibe-coded software" in result.output
+    assert "Trust, verification, and governance" in result.output
 
 
 def test_prompt_help_describes_opt_in_llm() -> None:

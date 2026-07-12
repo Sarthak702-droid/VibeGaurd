@@ -6,5 +6,5 @@ def test_next_prompt_focuses_on_hardening_risky_changes() -> None:
 
     assert content.startswith("# Suggested Next Prompt")
     assert "Do not rewrite the architecture." in content
-    assert "secret leakage" in content
-    assert "invalid OTP" in content
+    assert "HIGH Secret-like string found" in content
+    assert "Add a regression test" in content

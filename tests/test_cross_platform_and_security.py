@@ -1,5 +1,3 @@
-import shutil
-import sys
 import os
 import subprocess
 from pathlib import Path
@@ -8,15 +6,14 @@ import pytest
 from typer.testing import CliRunner
 
 from vibeguard.cli import app, display_path, safe_path
-from vibeguard.core.scanner import scan_project, is_sensitive
+from vibeguard.core.scanner import scan_project
 from vibeguard.core.token_packer import pack_files
 from vibeguard.core.verifier import verify_project
 from vibeguard.core.diff_analyzer import analyze_diff
-from vibeguard.core.risk_engine import analyze_risks, _redact_secrets_in_line
+from vibeguard.core.risk_engine import _redact_secrets_in_line
 from vibeguard.core.detector import ProjectDetection
 from vibeguard.core.builders import build_pack
-from vibeguard.utils.command_runner import run_project_command, is_allowlisted
-from vibeguard.utils.os_utils import get_os_name
+from vibeguard.utils.command_runner import run_project_command
 
 
 runner = CliRunner()

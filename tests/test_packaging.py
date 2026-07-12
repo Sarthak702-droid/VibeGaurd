@@ -22,7 +22,7 @@ def test_build_metadata_is_consistent() -> None:
         "build-backend": "hatchling.build",
     }
     assert data["project"]["name"] == "vibegaurd-cli"
-    assert data["project"]["version"] == __version__ == "0.1.1"
+    assert data["project"]["version"] == __version__ == "0.2.0"
     assert data["project"]["requires-python"] == ">=3.11"
 
 
@@ -31,6 +31,7 @@ def test_console_scripts_are_exact() -> None:
 
     assert scripts == {
         "vibeguard": "vibeguard.cli:app",
+        "vig": "vibeguard.cli:app",
         "vbg": "vibeguard.cli:app",
     }
 

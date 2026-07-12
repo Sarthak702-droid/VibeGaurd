@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import fnmatch
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -27,8 +28,12 @@ IMPORTANT_NAMES = {
     "pyproject.toml",
     "requirements.txt",
     "README.md",
-    "src/screens/Login.tsx",
-    "src/services/auth.ts",
+    "go.mod",
+    "pom.xml",
+    "build.gradle",
+    "Makefile",
+    "Dockerfile",
+    ".gitlab-ci.yml",
 }
 
 BINARY_SUFFIXES = {
@@ -62,7 +67,7 @@ class ScanResult:
     sensitive_files: list[str] = field(default_factory=list)
 
 
-def scan_project(root: Path) -> ScanResult:
+def scan_project(root: Path, extra_ignores: list[str] | None = None) -> ScanResult:
     root = Path(root).resolve()
     files: list[str] = []
     ignored: set[str] = set()
@@ -70,45 +75,47 @@ def scan_project(root: Path) -> ScanResult:
     large_files: list[str] = []
     sensitive_files: list[str] = []
 
-    for path in root.rglob("*"):
-        rel = path.relative_to(root).as_posix()
-        
-        # 1. Symlink Safety
-        if path.is_symlink():
-            skipped_symlinks.append(rel)
-            continue
-            
-        parts = set(path.relative_to(root).parts)
-        ignored_part = parts.intersection(DEFAULT_IGNORES)
-        if ignored_part:
-            ignored.update(ignored_part)
-            continue
-            
-        if path.is_dir():
-            continue
+    ignore_names = DEFAULT_IGNORES | set(extra_ignores or [])
+    for current, dir_names, file_names in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        safe_dirs: list[str] = []
+        for name in dir_names:
+            path = current_path / name
+            rel = path.relative_to(root).as_posix()
+            if path.is_symlink():
+                skipped_symlinks.append(rel)
+            elif name in ignore_names:
+                ignored.add(name)
+            else:
+                safe_dirs.append(name)
+        dir_names[:] = safe_dirs
+
+        for name in file_names:
+            path = current_path / name
+            rel = path.relative_to(root).as_posix()
+            if path.is_symlink():
+                skipped_symlinks.append(rel)
+                continue
             
         # 2. Sensitive Files (Exclude content scan, list as sensitive)
-        if is_sensitive(path.name):
-            sensitive_files.append(rel)
-            continue
+            if is_sensitive(path.name):
+                sensitive_files.append(rel)
+                continue
             
         # 3. Binary File Handling
-        if path.suffix.lower() in BINARY_SUFFIXES:
-            continue
+            if path.suffix.lower() in BINARY_SUFFIXES:
+                continue
             
         # 4. File Size Limits (1 MB)
-        try:
-            size = path.stat().st_size
-        except OSError:
-            size = 0
-            
-        if size > 1_048_576:
-            large_files.append(rel)
-            # still include path metadata
+            try:
+                size = path.stat().st_size
+            except OSError:
+                size = 0
+            if size > 1_048_576:
+                large_files.append(rel)
+                files.append(rel)
+                continue
             files.append(rel)
-            continue
-
-        files.append(rel)
 
     important = [file for file in files if file in IMPORTANT_NAMES or Path(file).name in IMPORTANT_NAMES]
     return ScanResult(
@@ -121,5 +128,4 @@ def scan_project(root: Path) -> ScanResult:
         large_files=sorted(large_files),
         sensitive_files=sorted(sensitive_files),
     )
-
 

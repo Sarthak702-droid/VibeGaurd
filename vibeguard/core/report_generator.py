@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from vibeguard.core.diff_analyzer import DiffSummary
-from vibeguard.core.risk_engine import RiskReport
+from vibeguard.core.risk_engine import Risk, RiskReport
 from vibeguard.core.verifier import VerificationReport
 from vibeguard.utils.os_utils import get_os_name
 
@@ -49,11 +49,11 @@ def render_diff_report(diff: DiffSummary) -> str:
         [
             "",
             "## Suggested Review Focus",
-            "- Auth logic",
-            "- OTP request flow",
-            "- OTP verification flow",
-            "- Loading states",
-            "- Error handling",
+            "- Changed behavior and public interfaces",
+            "- Validation and error handling",
+            "- Authentication, authorization, and data boundaries",
+            "- Dependency, configuration, CI, and migration impact",
+            "- Test coverage and rollback path",
             "- Secret leakage",
         ]
     )
@@ -63,7 +63,7 @@ def render_diff_report(diff: DiffSummary) -> str:
 def render_risk_report(report: RiskReport) -> str:
     os_name = get_os_name().title()
     python_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    grouped = {"HIGH": [], "MEDIUM": [], "LOW": [], "INFO": []}
+    grouped: dict[str, list[Risk]] = {"HIGH": [], "MEDIUM": [], "LOW": [], "INFO": []}
     for risk in report.risks:
         grouped.setdefault(risk.severity, []).append(risk)
     lines = [
@@ -93,8 +93,8 @@ def render_risk_report(report: RiskReport) -> str:
     lines.extend(
         [
             "## Recommended Actions",
-            "- Review auth changes manually.",
-            "- Add tests for OTP request and OTP verification.",
+            "- Review high-risk and protected-path changes manually.",
+            "- Add regression tests for changed behavior.",
             "- Check for hardcoded API keys.",
             "- Run VibeGuard verify.",
         ]

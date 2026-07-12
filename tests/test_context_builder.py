@@ -24,7 +24,7 @@ def test_context_explains_project_and_architecture_rules() -> None:
     content = build_context(_scan(), "add OTP login", PackResult())
 
     assert "## Project Type\nReact Native / Expo" in content
-    assert "Auth service exists at src/services/auth.ts" in content
+    assert "- Primary type: React Native / Expo." in content
     assert "Do not rewrite the full project." in content
 
 
