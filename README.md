@@ -29,6 +29,10 @@ through a provider boundary.
 
 ## 🚀 Installation
 
+See the complete [cross-platform installation guide](INSTALLATION.md) for macOS,
+Linux, Windows PowerShell, Windows CMD, upgrades, uninstall instructions and the
+planned one-line installer experience.
+
 ### Global Isolated Installation (Recommended)
 
 Install and run VibeGuard globally across all terminal sessions using `pipx`:
