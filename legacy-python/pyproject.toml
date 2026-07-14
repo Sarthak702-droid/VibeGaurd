@@ -1,0 +1,88 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vibegaurd-cli"
+version = "0.2.0"
+description = "Vendor-neutral trust and governance layer for AI-assisted software development."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+  { name = "Sarthak Tripathy", email = "sarthaktripathy2004@gmail.com" }
+]
+keywords = [
+  "vibe coding",
+  "ai coding",
+  "developer tools",
+  "cli",
+  "prompt engineering",
+  "code review",
+  "security",
+  "guardrails"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Security",
+  "Topic :: Utilities"
+]
+dependencies = [
+  "typer>=0.12",
+  "rich>=13.7",
+  "pydantic>=2",
+  "jinja2>=3.1",
+  "pyyaml>=6",
+  "pathspec>=0.12",
+  "openai>=1.0,<3"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "ruff>=0.5",
+  "mypy>=1.10",
+  "build>=1.2",
+  "twine>=5"
+]
+
+[project.urls]
+Homepage = "https://github.com/Sarthak702-droid/VibeGuard"
+Repository = "https://github.com/Sarthak702-droid/VibeGuard"
+Issues = "https://github.com/Sarthak702-droid/VibeGuard/issues"
+
+[project.scripts]
+vibeguard = "vibeguard.cli:app"
+vig = "vibeguard.cli:app"
+vbg = "vibeguard.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["vibeguard"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "vibeguard",
+  "tests",
+  "README.md",
+  "LICENSE",
+  "pyproject.toml"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["vibeguard"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+check_untyped_defs = true

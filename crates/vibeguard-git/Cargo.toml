@@ -1,0 +1,11 @@
+[package]
+name = "vibeguard-git"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+vibeguard-core = { path = "../vibeguard-core" }
+vibeguard-repository = { path = "../vibeguard-repository" }

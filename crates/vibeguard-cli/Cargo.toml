@@ -1,0 +1,37 @@
+[package]
+name = "vibeguard-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "VibeGuard local-first guardrail CLI"
+
+[[bin]]
+name = "vibeguard"
+path = "src/bin/vibeguard.rs"
+
+[[bin]]
+name = "vbg"
+path = "src/bin/vbg.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+vibeguard-ai = { path = "../vibeguard-ai" }
+vibeguard-auth = { path = "../vibeguard-auth" }
+vibeguard-cache = { path = "../vibeguard-cache" }
+vibeguard-config = { path = "../vibeguard-config" }
+vibeguard-context = { path = "../vibeguard-context" }
+vibeguard-core = { path = "../vibeguard-core" }
+vibeguard-deps = { path = "../vibeguard-deps" }
+vibeguard-git = { path = "../vibeguard-git" }
+vibeguard-planner = { path = "../vibeguard-planner" }
+vibeguard-prompt = { path = "../vibeguard-prompt" }
+vibeguard-report = { path = "../vibeguard-report" }
+vibeguard-repository = { path = "../vibeguard-repository" }
+vibeguard-risk = { path = "../vibeguard-risk" }
+vibeguard-runner = { path = "../vibeguard-runner" }
+vibeguard-scanner = { path = "../vibeguard-scanner" }
+vibeguard-secrets = { path = "../vibeguard-secrets" }
+vibeguard-verifier = { path = "../vibeguard-verifier" }
