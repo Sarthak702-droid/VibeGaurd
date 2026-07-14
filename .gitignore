@@ -10,3 +10,6 @@ build/
 .env
 .env.*
 !.env.example
+target/
+.vibeguard/
+python-client/dist/

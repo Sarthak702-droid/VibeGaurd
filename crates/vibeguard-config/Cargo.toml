@@ -1,0 +1,13 @@
+[package]
+name = "vibeguard-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+directories.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+vibeguard-core = { path = "../vibeguard-core" }

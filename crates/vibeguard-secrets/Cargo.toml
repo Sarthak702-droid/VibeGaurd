@@ -1,0 +1,10 @@
+[package]
+name = "vibeguard-secrets"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+regex.workspace = true
+vibeguard-core = { path = "../vibeguard-core" }

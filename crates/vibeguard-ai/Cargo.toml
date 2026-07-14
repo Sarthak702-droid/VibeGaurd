@@ -1,0 +1,9 @@
+[package]
+name = "vibeguard-ai"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+vibeguard-core = { path = "../vibeguard-core" }

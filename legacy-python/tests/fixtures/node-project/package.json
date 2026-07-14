@@ -1,0 +1,6 @@
+{
+  "name": "fixture-node",
+  "scripts": { "test": "node --test", "lint": "echo lint", "typecheck": "echo typecheck" },
+  "dependencies": { "react": "^18.0.0" },
+  "devDependencies": { "typescript": "^5.0.0" }
+}
